@@ -32,10 +32,9 @@ func main() {
 	memberService := services.NewMemberService(db)
 	memberController := controllers.NewMemberController(memberService)
 
-	http.Handle("/members", middleware.Logging(http.HandlerFunc(memberController.GetMembers)))
 	http.Handle("/members/create", middleware.Logging(http.HandlerFunc(memberController.CreateMember)))
-	http.Handle("/members/update", middleware.Logging(http.HandlerFunc(memberController.UpdateMember)))
-	http.Handle("/members/delete", middleware.Logging(http.HandlerFunc(memberController.DeleteMember)))
+	http.Handle("/members/login", middleware.Logging(http.HandlerFunc(memberController.Login)))
+	http.Handle("/member/update_password", middleware.AuthMiddleware(http.HandlerFunc(memberController.UpdatePassword)))
 
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }

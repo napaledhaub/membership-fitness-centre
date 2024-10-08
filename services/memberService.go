@@ -2,8 +2,14 @@ package services
 
 import (
 	"database/sql"
+	"errors"
 	"membership-fitness-centre/models"
+	"time"
+
+	"github.com/dgrijalva/jwt-go"
 )
+
+var mySigningKey = []byte("secret")
 
 type MemberService struct {
 	db *sql.DB
@@ -13,43 +19,49 @@ func NewMemberService(db *sql.DB) *MemberService {
 	return &MemberService{db: db}
 }
 
-func (s *MemberService) CreateMember(name, email string) (int, error) {
-	sqlStatement := `INSERT INTO members (name, email) VALUES ($1, $2) RETURNING id`
+func (s *MemberService) CreateMember(username, email, password string) (string, error) {
+	sqlStatement := `INSERT INTO members (username, email, password) VALUES ($1, $2, $3) RETURNING id`
 	id := 0
-	err := s.db.QueryRow(sqlStatement, name, email).Scan(&id)
+	err := s.db.QueryRow(sqlStatement, username, email, password).Scan(&id)
 	if err != nil {
-		return 0, err
+		return "", err
 	}
-	return id, nil
-}
 
-func (s *MemberService) GetMembers() ([]models.Member, error) {
-	rows, err := s.db.Query("SELECT id, name, email FROM members")
+	token, err := s.Authenticate(username, password)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	defer rows.Close()
-
-	var members []models.Member
-	for rows.Next() {
-		var member models.Member
-		err = rows.Scan(&member.ID, &member.Name, &member.Email)
-		if err != nil {
-			return nil, err
-		}
-		members = append(members, member)
-	}
-	return members, nil
+	return token, nil
 }
 
-func (s *MemberService) UpdateMember(id int, name, email string) error {
-	sqlStatement := `UPDATE members SET name = $2, email = $3 WHERE id = $1`
-	_, err := s.db.Exec(sqlStatement, id, name, email)
-	return err
+func (s *MemberService) Authenticate(identifier, password string) (string, error) {
+	var member models.Member
+
+	query := `SELECT id, username, email, password FROM members WHERE username = $1 OR email = $1`
+	err := s.db.QueryRow(query, identifier).Scan(&member.ID, &member.Username, &member.Email, &member.Password)
+	if err != nil {
+		return "", err
+	}
+
+	if password != member.Password {
+		return "", errors.New("invalid credentials")
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"ID":  member.ID,
+		"exp": time.Now().Add(time.Hour * 24).Unix(),
+	})
+
+	tokenString, err := token.SignedString(mySigningKey)
+	if err != nil {
+		return "", err
+	}
+
+	return tokenString, nil
 }
 
-func (s *MemberService) DeleteMember(id int) error {
-	sqlStatement := `DELETE FROM members WHERE id = $1`
-	_, err := s.db.Exec(sqlStatement, id)
+func (s *MemberService) UpdatePassword(memberID int, newPassword string) error {
+	query := `UPDATE members SET password = $1 WHERE id = $2`
+	_, err := s.db.Exec(query, newPassword, memberID)
 	return err
 }

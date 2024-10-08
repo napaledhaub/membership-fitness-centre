@@ -5,79 +5,60 @@ import (
 	"membership-fitness-centre/models"
 	"membership-fitness-centre/services"
 	"net/http"
-	"strconv"
 )
 
 type MemberController struct {
-	service *services.MemberService
+	serviceMember *services.MemberService
 }
 
-func NewMemberController(service *services.MemberService) *MemberController {
-	return &MemberController{service: service}
+func NewMemberController(serviceMember *services.MemberService) *MemberController {
+	return &MemberController{serviceMember: serviceMember}
 }
 
-func (uc *MemberController) CreateMember(w http.ResponseWriter, r *http.Request) {
+func (c *MemberController) CreateMember(w http.ResponseWriter, r *http.Request) {
 	var member models.Member
 	if err := json.NewDecoder(r.Body).Decode(&member); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	id, err := uc.service.CreateMember(member.Name, member.Email)
+	token, err := c.serviceMember.CreateMember(member.Username, member.Email, member.Password)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(map[string]int{"id": id})
+	json.NewEncoder(w).Encode(map[string]string{"token": token})
 }
 
-func (uc *MemberController) GetMembers(w http.ResponseWriter, r *http.Request) {
-	members, err := uc.service.GetMembers()
+func (c *MemberController) Login(w http.ResponseWriter, r *http.Request) {
+	var creds struct {
+		Identifier string `json:"identifier"`
+		Password   string `json:"password"`
+	}
+	json.NewDecoder(r.Body).Decode(&creds)
+
+	token, err := c.serviceMember.Authenticate(creds.Identifier, creds.Password)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
 
-	json.NewEncoder(w).Encode(members)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"token": token})
 }
 
-func (uc *MemberController) UpdateMember(w http.ResponseWriter, r *http.Request) {
-	var member models.Member
-
-	idStr := r.URL.Query().Get("id")
-	id, err := strconv.Atoi(idStr)
-	if err != nil {
-		http.Error(w, "Invalid ID", http.StatusBadRequest)
-		return
+func (c *MemberController) UpdatePassword(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		ID          int    `json:"ID"`
+		NewPassword string `json:"new_password"`
 	}
+	json.NewDecoder(r.Body).Decode(&req)
 
-	if err := json.NewDecoder(r.Body).Decode(&member); err != nil {
+	err := c.serviceMember.UpdatePassword(req.ID, req.NewPassword)
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	err = uc.service.UpdateMember(id, member.Name, member.Email)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	w.WriteHeader(http.StatusNoContent)
-}
-
-func (uc *MemberController) DeleteMember(w http.ResponseWriter, r *http.Request) {
-	idStr := r.URL.Query().Get("id")
-	id, err := strconv.Atoi(idStr)
-	if err != nil {
-		http.Error(w, "Invalid ID", http.StatusBadRequest)
-		return
-	}
-
-	err = uc.service.DeleteMember(id)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
