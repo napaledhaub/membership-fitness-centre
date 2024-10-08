@@ -33,6 +33,7 @@ func main() {
 	memberController := controllers.NewMemberController(memberService)
 
 	http.Handle("/members/create", middleware.Logging(http.HandlerFunc(memberController.CreateMember)))
+	http.Handle("/verify", middleware.Logging(http.HandlerFunc(memberController.VerifyEmailHandler)))
 	http.Handle("/members/login", middleware.Logging(http.HandlerFunc(memberController.Login)))
 	http.Handle("/member/update_password", middleware.AuthMiddleware(http.HandlerFunc(memberController.UpdatePassword)))
 

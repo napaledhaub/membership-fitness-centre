@@ -22,14 +22,31 @@ func (c *MemberController) CreateMember(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	token, ID, err := c.serviceMember.CreateMember(member.Username, member.Email, member.Password)
+	ID, err := c.serviceMember.CreateMember(member.Username, member.Email, member.Password)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(map[string]string{"token": token, "ID": ID})
+	json.NewEncoder(w).Encode(map[string]string{"ID": ID})
+}
+
+func (c *MemberController) VerifyEmailHandler(w http.ResponseWriter, r *http.Request) {
+	token := r.URL.Query().Get("token")
+	if token == "" {
+		http.Error(w, "Token is required", http.StatusBadRequest)
+		return
+	}
+
+	tokenLogin, err := c.serviceMember.VerifyEmail(token)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"token": tokenLogin})
 }
 
 func (c *MemberController) Login(w http.ResponseWriter, r *http.Request) {
