@@ -22,14 +22,14 @@ func (c *MemberController) CreateMember(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	token, err := c.serviceMember.CreateMember(member.Username, member.Email, member.Password)
+	token, ID, err := c.serviceMember.CreateMember(member.Username, member.Email, member.Password)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(map[string]string{"token": token})
+	json.NewEncoder(w).Encode(map[string]string{"token": token, "ID": ID})
 }
 
 func (c *MemberController) Login(w http.ResponseWriter, r *http.Request) {

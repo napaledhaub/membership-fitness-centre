@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
+	"golang.org/x/crypto/bcrypt"
 )
 
 var mySigningKey = []byte("secret")
@@ -19,19 +20,44 @@ func NewMemberService(db *sql.DB) *MemberService {
 	return &MemberService{db: db}
 }
 
-func (s *MemberService) CreateMember(username, email, password string) (string, error) {
-	sqlStatement := `INSERT INTO members (username, email, password) VALUES ($1, $2, $3) RETURNING id`
-	id := 0
-	err := s.db.QueryRow(sqlStatement, username, email, password).Scan(&id)
+func (s *MemberService) CreateMember(username, email, password string) (string, string, error) {
+	var exists bool
+	ID := "0"
+
+	query := `
+        SELECT EXISTS (
+            SELECT 1 FROM members WHERE username = $1 OR email = $2
+        );`
+	err := s.db.QueryRow(query, username, email).Scan(&exists)
 	if err != nil {
-		return "", err
+		return "", ID, err
+	}
+	if exists {
+		return "", ID, errors.New("member already exists")
 	}
 
-	token, err := s.Authenticate(username, password)
+	query = `INSERT INTO members (username, email, password) VALUES ($1, $2, $3) RETURNING id`
+
+	bytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
-		return "", err
+		return "", ID, err
 	}
-	return token, nil
+
+	err = s.db.QueryRow(query, username, email, string(bytes)).Scan(&ID)
+	if err != nil {
+		return "", ID, err
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"ID":  ID,
+		"exp": time.Now().Add(time.Hour * 24).Unix(),
+	})
+	tokenString, err := token.SignedString(mySigningKey)
+	if err != nil {
+		return "", ID, err
+	}
+
+	return tokenString, ID, nil
 }
 
 func (s *MemberService) Authenticate(identifier, password string) (string, error) {
@@ -43,7 +69,8 @@ func (s *MemberService) Authenticate(identifier, password string) (string, error
 		return "", err
 	}
 
-	if password != member.Password {
+	err = bcrypt.CompareHashAndPassword([]byte(member.Password), []byte(password))
+	if err != nil {
 		return "", errors.New("invalid credentials")
 	}
 
@@ -51,7 +78,6 @@ func (s *MemberService) Authenticate(identifier, password string) (string, error
 		"ID":  member.ID,
 		"exp": time.Now().Add(time.Hour * 24).Unix(),
 	})
-
 	tokenString, err := token.SignedString(mySigningKey)
 	if err != nil {
 		return "", err
@@ -61,7 +87,12 @@ func (s *MemberService) Authenticate(identifier, password string) (string, error
 }
 
 func (s *MemberService) UpdatePassword(memberID int, newPassword string) error {
+	bytes, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+
 	query := `UPDATE members SET password = $1 WHERE id = $2`
-	_, err := s.db.Exec(query, newPassword, memberID)
+	_, err = s.db.Exec(query, string(bytes), memberID)
 	return err
 }
