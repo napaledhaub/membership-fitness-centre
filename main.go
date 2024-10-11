@@ -10,6 +10,7 @@ import (
 	"net/http"
 
 	_ "github.com/lib/pq"
+	"github.com/robfig/cron/v3"
 )
 
 const (
@@ -35,12 +36,21 @@ func main() {
 	packageService := services.NewPackageService(db)
 	packageController := controllers.NewPackageController(packageService)
 
+	subscriptionService := services.NewSubscriptionervice(db)
+	subscriptionController := controllers.NewSubscriptionController(subscriptionService)
+
+	c := cron.New()
+	c.AddFunc("@every 1m", subscriptionController.CheckSubscriptions)
+	c.Start()
+
 	http.Handle("/members/create", middleware.Logging(http.HandlerFunc(memberController.CreateMember)))
 	http.Handle("/verify", middleware.Logging(http.HandlerFunc(memberController.VerifyEmailHandler)))
 	http.Handle("/members/login", middleware.Logging(http.HandlerFunc(memberController.Login)))
 	http.Handle("/member/update_password", middleware.AuthMiddleware(http.HandlerFunc(memberController.UpdatePassword)))
 
-	http.Handle("/package/add_package", middleware.Logging(http.HandlerFunc(packageController.AddPackage)))
+	http.Handle("/package/add_package", middleware.AuthMiddleware(http.HandlerFunc(packageController.AddPackage)))
 
 	log.Fatal(http.ListenAndServe(":8080", nil))
+
+	select {}
 }
