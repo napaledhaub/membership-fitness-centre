@@ -10,4 +10,6 @@ type Member struct {
 	IsVerified        bool
 	VerificationToken string
 	TokenCreatedAt    time.Time
+	PackageID         int
+	ExpireDate        time.Time
 }
