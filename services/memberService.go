@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"errors"
 	"membership-fitness-centre/models"
-	"net/smtp"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
@@ -13,11 +12,12 @@ import (
 )
 
 var mySigningKey = []byte("secret")
-var from = ""
-var passwordEmail = "gaqlxlrphumweaxw "
-var host = "smtp.gmail.com"
-var port = "587"
-var link = "http://localhost:8080/verify?token="
+
+// var from = ""
+// var passwordEmail = "gaqlxlrphumweaxw "
+// var host = "smtp.gmail.com"
+// var port = "587"
+// var link = "http://localhost:8080/verify?token="
 
 type MemberService struct {
 	db *sql.DB
@@ -44,10 +44,10 @@ func (s *MemberService) CreateMember(username, email, password string) (string, 
 	}
 
 	token := uuid.NewString()
-	err = sendVerificationEmail(email, token)
-	if err != nil {
-		return ID, err
-	}
+	//err = sendVerificationEmail(email, token)
+	//if err != nil {
+	//	return ID, err
+	//}
 
 	query = `INSERT INTO members (username, email, password, isverified, verificationtoken, tokencreatedat)
 		VALUES ($1, $2, $3, false, $4, now()) RETURNING id`
@@ -65,16 +65,16 @@ func (s *MemberService) CreateMember(username, email, password string) (string, 
 	return ID, nil
 }
 
-func sendVerificationEmail(to, token string) error {
-	msg := []byte("From: " + from + "\n" +
-		"To: " + to + "\n" +
-		"Subject: Email Verification\n\n" +
-		"Click the link to verify your email:" + link + token)
+// func sendVerificationEmail(to, token string) error {
+// 	msg := []byte("From: " + from + "\n" +
+// 		"To: " + to + "\n" +
+// 		"Subject: Email Verification\n\n" +
+// 		"Click the link to verify your email:" + link + token)
 
-	auth := smtp.PlainAuth("", from, passwordEmail, host)
-	err := smtp.SendMail(host+":"+port, auth, from, []string{to}, msg)
-	return err
-}
+// 	auth := smtp.PlainAuth("", from, passwordEmail, host)
+// 	err := smtp.SendMail(host+":"+port, auth, from, []string{to}, msg)
+// 	return err
+// }
 
 func (s *MemberService) Authenticate(identifier, password string) (string, error) {
 	var member models.Member

@@ -32,10 +32,15 @@ func main() {
 	memberService := services.NewMemberService(db)
 	memberController := controllers.NewMemberController(memberService)
 
+	packageService := services.NewPackageService(db)
+	packageController := controllers.NewPackageController(packageService)
+
 	http.Handle("/members/create", middleware.Logging(http.HandlerFunc(memberController.CreateMember)))
 	http.Handle("/verify", middleware.Logging(http.HandlerFunc(memberController.VerifyEmailHandler)))
 	http.Handle("/members/login", middleware.Logging(http.HandlerFunc(memberController.Login)))
 	http.Handle("/member/update_password", middleware.AuthMiddleware(http.HandlerFunc(memberController.UpdatePassword)))
+
+	http.Handle("/package/add_package", middleware.Logging(http.HandlerFunc(packageController.AddPackage)))
 
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
