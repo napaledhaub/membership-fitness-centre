@@ -42,7 +42,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Contact
 
-For any inquiries, please reach out to [your-email@example.com](mailto:napaledhaub@protonmail.com).
+If you have any questions or feedback, feel free to reach out!
 
 ---
 
